@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit checks for client and server..."
+
+# Run client lint
+echo "📱 Linting client..."
+cd client
+npm run lint
+if [ $? -ne 0 ]; then
+  echo "❌ Client lint failed"
+  exit 1
+fi
+cd ..
+
+# Run server lint and format
+echo "🖥️ Linting and formatting server..."
+cd server
+npm run lint:fix
+npm run format
+cd ..
+
+echo "✅ Pre-commit checks completed!"

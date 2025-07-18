@@ -1,0 +1,85 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-push checks for client and server..."
+
+# Function to ask user if they want to continue on error
+ask_continue() {
+  echo "⚠️  $1"
+  echo "Do you want to continue with the push anyway? (y/N)"
+  read -r response
+  case "$response" in
+    [yY][eE][sS]|[yY]) 
+      echo "⚠️  Continuing with push despite errors..."
+      return 0
+      ;;
+    *)
+      echo "❌ Push cancelled"
+      return 1
+      ;;
+  esac
+}
+
+# Initialize error flags
+CLIENT_LINT_ERROR=0
+CLIENT_BUILD_ERROR=0
+SERVER_LINT_ERROR=0
+SERVER_BUILD_ERROR=0
+
+# Run client checks
+echo "📱 Checking client..."
+cd client
+
+echo "  - Running client lint..."
+if ! npm run lint; then
+  CLIENT_LINT_ERROR=1
+  echo "❌ Client lint has issues"
+fi
+
+echo "  - Building client..."
+if ! npm run build; then
+  CLIENT_BUILD_ERROR=1
+  echo "❌ Client build failed"
+fi
+
+cd ..
+
+# Run server checks
+echo "🖥️ Checking server..."
+cd server
+
+echo "  - Running server lint..."
+if ! npm run lint; then
+  SERVER_LINT_ERROR=1
+  echo "❌ Server lint has issues"
+fi
+
+echo "  - Auto-fixing server lint issues..."
+npm run lint:fix
+
+echo "  - Running server format..."
+npm run format
+
+echo "  - Building server..."
+if ! npm run build; then
+  SERVER_BUILD_ERROR=1
+  echo "❌ Server build failed"
+fi
+
+cd ..
+
+# Check if any critical errors occurred
+if [ $CLIENT_BUILD_ERROR -eq 1 ]; then
+  ask_continue "Client build failed" || exit 1
+fi
+
+if [ $SERVER_BUILD_ERROR -eq 1 ]; then
+  ask_continue "Server build failed" || exit 1
+fi
+
+# For lint errors, just warn but don't block
+if [ $CLIENT_LINT_ERROR -eq 1 ] || [ $SERVER_LINT_ERROR -eq 1 ]; then
+  echo "⚠️  Some lint issues were found but auto-fixing was attempted"
+fi
+
+echo "✅ Pre-push checks completed! Pushing to repository..."
